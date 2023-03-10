@@ -223,40 +223,54 @@ class SQLSensor(SensorEntity):
                 name=name,
             )
 
-    def update(self) -> None:
+ def update(self):
         """Retrieve sensor data from the query."""
 
         data = None
-        self._attr_extra_state_attributes = {}
-        sess: scoped_session = self.sessionmaker()
         try:
+            sess = self.sessionmaker()
+            if self._query_template:
+                self._query_template.hass = self.hass
+                self._query = self._query_template.render()
+                _LOGGER.debug("query = %s", self._query)
+            #result = sess.execute(self._query)
             result: Result = sess.execute(sqlalchemy.text(self._query))
-        except SQLAlchemyError as err:
+            self._attributes = {}
+
+            if not result.returns_rows or result.rowcount == 0:
+                _LOGGER.warning("%s returned no results", self._query)
+                self._state = None
+                return
+
+            for res in result.mappings():
+                _LOGGER.debug("result = %s", res.items())
+                data = res[self._column_name]
+                for key, value in res.items():
+                    if isinstance(value, decimal.Decimal):
+                        value = float(value)
+                    if isinstance(value, datetime.date):
+                        value = str(value)
+                    try:
+                        value_json = json.loads(value)
+                        if isinstance(value_json, dict) or isinstance(value_json, list):
+                            value = value_json
+                    except (ValueError, TypeError):
+                        pass
+                    self._attributes[key] = value
+        except sqlalchemy.exc.SQLAlchemyError as err:
             _LOGGER.error(
                 "Error executing query %s: %s",
                 self._query,
                 redact_credentials(str(err)),
             )
             return
-
-        for res in result.mappings():
-            _LOGGER.debug("Query %s result in %s", self._query, res.items())
-            data = res[self._column_name]
-            for key, value in res.items():
-                if isinstance(value, decimal.Decimal):
-                    value = float(value)
-                if isinstance(value, date):
-                    value = value.isoformat()
-                self._attr_extra_state_attributes[key] = value
+        finally:
+            sess.close()
 
         if data is not None and self._template is not None:
-            self._attr_native_value = (
-                self._template.async_render_with_possible_json_value(data, None)
+            self._state = self._template.async_render_with_possible_json_value(
+                data, None
             )
         else:
-            self._attr_native_value = data
+            self._state = data
 
-        if data is None:
-            _LOGGER.warning("%s returned no results", self._query)
-
-        sess.close()
