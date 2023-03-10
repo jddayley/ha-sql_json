@@ -1,5 +1,4 @@
 """The sql component."""
-"""The sql component."""
 from __future__ import annotations
 
 import voluptuous as vol
