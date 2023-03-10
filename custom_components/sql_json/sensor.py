@@ -8,7 +8,8 @@ import re
 import json
 
 import sqlalchemy
-from sqlalchemy.orm import scoped_session, sessionmaker
+#from sqlalchemy.orm import scoped_session, sessionmaker
+from sqlalchemy.orm import Session, scoped_session, sessionmaker
 import voluptuous as vol
 
 from homeassistant.components.recorder import CONF_DB_URL, DEFAULT_DB_FILE, DEFAULT_URL
@@ -58,14 +59,15 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     if not (db_url := config.get(CONF_DB_URL)):
         db_url = DEFAULT_URL.format(hass_config_path=hass.config.path(DEFAULT_DB_FILE))
 
-    sess = None
+    #sess = None
+    sess: Session | None = None
     try:
-        engine = sqlalchemy.create_engine(db_url)
-        sessmaker = scoped_session(sessionmaker(bind=engine))
+        engine =  sqlalchemy.create_engine(db_url, future=True)
+        sessmaker = scoped_session(sessionmaker(bind=engine, future=True))
 
         # Run a dummy query just to test the db_url
         sess = sessmaker()
-        sess.execute("SELECT 1;")
+        sess.execute(sqlalchemy.text("SELECT 1;"))
 
     except sqlalchemy.exc.SQLAlchemyError as err:
         _LOGGER.error(
@@ -154,7 +156,8 @@ class SQLSensor(SensorEntity):
                 self._query_template.hass = self.hass
                 self._query = self._query_template.render()
                 _LOGGER.debug("query = %s", self._query)
-            result = sess.execute(self._query)
+            #result = sess.execute(self._query)
+            result: Result = sess.execute(sqlalchemy.text(self._query))
             self._attributes = {}
 
             if not result.returns_rows or result.rowcount == 0:
