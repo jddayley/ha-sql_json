@@ -223,7 +223,7 @@ class SQLSensor(SensorEntity):
                 name=name,
             )
 
- def update(self):
+    def update(self):
         """Retrieve sensor data from the query."""
 
         data = None
