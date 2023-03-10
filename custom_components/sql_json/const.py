@@ -3,7 +3,7 @@ import re
 
 from homeassistant.const import Platform
 
-DOMAIN = "sql"
+DOMAIN = "sql_json"
 PLATFORMS = [Platform.SENSOR]
 
 CONF_COLUMN_NAME = "column"
