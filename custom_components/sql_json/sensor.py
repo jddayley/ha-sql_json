@@ -273,4 +273,3 @@ class SQLSensor(SensorEntity):
             )
         else:
             self._state = data
-
